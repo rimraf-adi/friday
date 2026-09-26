@@ -23,8 +23,11 @@ import {
   Zap,
   Globe,
   Radio,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import { ForexNewsStory, ScraperMeta } from "@/types/news";
+import { playNotificationTone, NotificationTone } from "@/lib/audio";
 
 export default function Home() {
   const [stories, setStories] = useState<ForexNewsStory[]>([]);
@@ -46,7 +49,7 @@ export default function Home() {
     body: string;
     url?: string;
   } | null>(null);
-
+  const [selectedTone, setSelectedTone] = useState<NotificationTone>("chime");
   const testIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Telegram state
@@ -84,24 +87,29 @@ export default function Home() {
     }
   };
 
-  // Register Service Worker and check notification permission
+  // Register Service Worker, check notification permission, and load tone
   useEffect(() => {
     fetchNews();
     fetchTelegramStatus();
 
-    if (typeof window !== "undefined" && "Notification" in window) {
-      setWebNotificationPermission(Notification.permission);
+    if (typeof window !== "undefined") {
+      const savedTone = localStorage.getItem("forex_notif_tone") as NotificationTone;
+      if (savedTone) setSelectedTone(savedTone);
 
-      if ("serviceWorker" in navigator) {
-        navigator.serviceWorker
-          .register("/sw.js")
-          .then(async (reg) => {
-            const sub = await reg.pushManager.getSubscription();
-            if (sub) {
-              setIsWebPushSubscribed(true);
-            }
-          })
-          .catch((err) => console.log("SW register error:", err));
+      if ("Notification" in window) {
+        setWebNotificationPermission(Notification.permission);
+
+        if ("serviceWorker" in navigator) {
+          navigator.serviceWorker
+            .register("/sw.js")
+            .then(async (reg) => {
+              const sub = await reg.pushManager.getSubscription();
+              if (sub) {
+                setIsWebPushSubscribed(true);
+              }
+            })
+            .catch((err) => console.log("SW register error:", err));
+        }
       }
     }
 
@@ -111,6 +119,14 @@ export default function Home() {
       }
     };
   }, []);
+
+  const handleToneChange = (tone: NotificationTone) => {
+    setSelectedTone(tone);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("forex_notif_tone", tone);
+    }
+    playNotificationTone(tone);
+  };
 
   const requestWebNotifications = async () => {
     if (!("Notification" in window)) {
@@ -157,6 +173,9 @@ export default function Home() {
 
   // Web notification trigger helper
   const triggerWebNotification = (title: string, body: string, url: string = "/") => {
+    // 0. Play audible notification tone
+    playNotificationTone(selectedTone);
+
     // 1. Native Desktop / Browser notification
     if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
       try {
@@ -491,9 +510,38 @@ export default function Home() {
             </div>
           </div>
 
+          {/* Notification Tone Selector Toolbar */}
+          <div className="pt-2 border-t border-indigo-900/40 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2">
+              <Volume2 className="h-4 w-4 text-indigo-400 shrink-0" />
+              <span className="text-slate-300 font-medium">Alert Tone:</span>
+              <select
+                value={selectedTone}
+                onChange={(e) => handleToneChange(e.target.value as NotificationTone)}
+                className="bg-slate-900 border border-indigo-800/80 rounded-lg px-2.5 py-1 text-xs text-indigo-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-medium cursor-pointer"
+              >
+                <option value="chime">🔔 Elegant Chime (Default)</option>
+                <option value="trader">🚨 Trader Alert (Urgent 3-Beep)</option>
+                <option value="glass">💎 Crystal Glass Ping</option>
+                <option value="bloomberg">⚡ Bloomberg Terminal Beep</option>
+                <option value="pop">🫧 Modern Bubble Pop</option>
+                <option value="silent">🔇 Silent (No Sound)</option>
+              </select>
+            </div>
+
+            <button
+              onClick={() => playNotificationTone(selectedTone)}
+              disabled={selectedTone === "silent"}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs border border-slate-700 transition disabled:opacity-40"
+            >
+              <Play className="h-3 w-3 fill-current text-indigo-400" />
+              Preview Tone
+            </button>
+          </div>
+
           <div className="text-[11px] text-slate-400 bg-slate-950/50 p-2 rounded-lg border border-slate-800 flex items-center justify-between">
             <span>
-              ℹ️ <b>Web Only Testing:</b> When testing is activated, alerts are sent strictly to your browser every 10 seconds. Telegram notifications remain <b>silent</b> and will only alert on genuine new Forex news.
+              ℹ️ <b>Web Only Testing:</b> When testing is activated, alerts with your chosen tone play strictly on your browser every 10 seconds. Telegram notifications remain <b>silent</b> and will only alert on genuine new Forex news.
             </span>
           </div>
         </div>
