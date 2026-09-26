@@ -1,9 +1,13 @@
 import fs from "fs";
 import path from "path";
 import { ForexNewsStory, NewsStore, ScraperMeta } from "@/types/news";
+import seedNewsData from "./seed-news.json";
 
-const DATA_DIR = path.join(process.cwd(), "data");
-const DATA_FILE = path.join(DATA_DIR, "forex-news.json");
+const BUNDLED_DIR = path.join(process.cwd(), "data");
+const BUNDLED_FILE = path.join(BUNDLED_DIR, "forex-news.json");
+
+// /tmp is the only writable directory in AWS Lambda / Vercel Serverless
+const TMP_FILE = path.join("/tmp", "forex-news.json");
 
 const defaultMeta: ScraperMeta = {
   lastRunAt: null,
@@ -16,51 +20,87 @@ const defaultMeta: ScraperMeta = {
   lastScrapedUrl: "https://www.forexfactory.com/",
 };
 
-export function getNewsStore(): NewsStore {
-  try {
-    if (!fs.existsSync(DATA_FILE)) {
-      return { meta: { ...defaultMeta }, stories: [] };
-    }
-    const raw = fs.readFileSync(DATA_FILE, "utf-8");
-    const data: NewsStore = JSON.parse(raw);
+// Global in-memory cache for warm lambda executions
+const globalForStore = global as unknown as {
+  __newsStoreCache?: NewsStore;
+};
 
-    // Guarantee descending order (newest first by numericId and publishedAt)
-    data.stories.sort((a, b) => {
+export function getNewsStore(): NewsStore {
+  // 1. Check in-memory cache
+  if (globalForStore.__newsStoreCache && globalForStore.__newsStoreCache.stories.length > 0) {
+    return globalForStore.__newsStoreCache;
+  }
+
+  let data: NewsStore | null = null;
+
+  // 2. Check /tmp/forex-news.json (serverless writable store)
+  try {
+    if (fs.existsSync(TMP_FILE)) {
+      const raw = fs.readFileSync(TMP_FILE, "utf-8");
+      data = JSON.parse(raw);
+    }
+  } catch (err) {
+    console.warn("[Storage] Error reading from /tmp/forex-news.json:", err);
+  }
+
+  // 3. Fallback to bundled seed data (guaranteed inside lambda bundle)
+  if (!data || !data.stories || data.stories.length === 0) {
+    try {
+      data = JSON.parse(JSON.stringify(seedNewsData));
+    } catch {
+      data = { meta: { ...defaultMeta }, stories: [] };
+    }
+  }
+
+  const storeData: NewsStore = data || { meta: { ...defaultMeta }, stories: [] };
+
+  // Guarantee strict descending order (newest first by numericId and publishedAt)
+  if (Array.isArray(storeData.stories)) {
+    storeData.stories.sort((a, b) => {
       if (b.numericId !== a.numericId) {
         return b.numericId - a.numericId;
       }
       return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
     });
-
-    return data;
-  } catch (error) {
-    console.error("Error reading news store:", error);
-    return { meta: { ...defaultMeta }, stories: [] };
+  } else {
+    storeData.stories = [];
   }
+
+  globalForStore.__newsStoreCache = storeData;
+  return storeData;
 }
 
 export function saveNewsStore(store: NewsStore): void {
-  try {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
+  // Always sort descending before saving
+  store.stories.sort((a, b) => {
+    if (b.numericId !== a.numericId) {
+      return b.numericId - a.numericId;
     }
+    return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
+  });
 
-    // Always sort descending before saving
-    store.stories.sort((a, b) => {
-      if (b.numericId !== a.numericId) {
-        return b.numericId - a.numericId;
-      }
-      return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
-    });
+  store.meta.totalStories = store.stories.length;
 
-    store.meta.totalStories = store.stories.length;
+  // 1. Update in-memory cache immediately
+  globalForStore.__newsStoreCache = store;
 
-    const tempFile = `${DATA_FILE}.tmp`;
-    fs.writeFileSync(tempFile, JSON.stringify(store, null, 2), "utf-8");
-    fs.renameSync(tempFile, DATA_FILE);
-  } catch (error) {
-    console.error("Error saving news store:", error);
-    throw error;
+  const content = JSON.stringify(store, null, 2);
+
+  // 2. Write to /tmp (always writable on Vercel and local)
+  try {
+    fs.writeFileSync(TMP_FILE, content, "utf-8");
+  } catch (tmpErr) {
+    console.warn("[Storage] Could not write to /tmp:", tmpErr);
+  }
+
+  // 3. Attempt write to local data/ directory (succeeds locally, safely ignored on Vercel read-only FS)
+  try {
+    if (!fs.existsSync(BUNDLED_DIR)) {
+      fs.mkdirSync(BUNDLED_DIR, { recursive: true });
+    }
+    fs.writeFileSync(BUNDLED_FILE, content, "utf-8");
+  } catch {
+    // Expected on Vercel read-only file system
   }
 }
 

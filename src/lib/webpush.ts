@@ -3,7 +3,12 @@ import path from "path";
 import webpush from "web-push";
 import { ForexNewsStory } from "@/types/news";
 
-const SUBSCRIPTIONS_FILE = path.join(process.cwd(), "data", "webpush-subscriptions.json");
+const BUNDLED_SUBSCRIPTIONS = path.join(process.cwd(), "data", "webpush-subscriptions.json");
+const TMP_SUBSCRIPTIONS = path.join("/tmp", "webpush-subscriptions.json");
+
+const globalForWebPush = global as unknown as {
+  __webPushSubscriptions?: any[];
+};
 
 export const VAPID_PUBLIC_KEY =
   process.env.VAPID_PUBLIC_KEY ||
@@ -19,31 +24,63 @@ export const VAPID_SUBJECT =
 webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
 
 export function getSubscriptions(): any[] {
+  if (globalForWebPush.__webPushSubscriptions && globalForWebPush.__webPushSubscriptions.length > 0) {
+    return globalForWebPush.__webPushSubscriptions;
+  }
+
+  // 1. Try /tmp
   try {
-    if (fs.existsSync(SUBSCRIPTIONS_FILE)) {
-      const data = JSON.parse(fs.readFileSync(SUBSCRIPTIONS_FILE, "utf-8"));
-      return Array.isArray(data) ? data : [];
+    if (fs.existsSync(TMP_SUBSCRIPTIONS)) {
+      const data = JSON.parse(fs.readFileSync(TMP_SUBSCRIPTIONS, "utf-8"));
+      if (Array.isArray(data)) {
+        globalForWebPush.__webPushSubscriptions = data;
+        return data;
+      }
     }
   } catch (err) {
-    console.error("[WebPush] Error reading subscriptions:", err);
+    console.warn("[WebPush] Error reading /tmp/webpush-subscriptions.json:", err);
   }
+
+  // 2. Try bundled data/
+  try {
+    if (fs.existsSync(BUNDLED_SUBSCRIPTIONS)) {
+      const data = JSON.parse(fs.readFileSync(BUNDLED_SUBSCRIPTIONS, "utf-8"));
+      if (Array.isArray(data)) {
+        globalForWebPush.__webPushSubscriptions = data;
+        return data;
+      }
+    }
+  } catch (err) {
+    console.warn("[WebPush] Error reading bundled subscriptions:", err);
+  }
+
   return [];
 }
 
 export function saveSubscription(sub: any): void {
-  try {
-    const dir = path.dirname(SUBSCRIPTIONS_FILE);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  const existing = getSubscriptions();
+  const isDuplicate = existing.some((s) => s.endpoint === sub.endpoint);
+  if (!isDuplicate) {
+    existing.push(sub);
+    globalForWebPush.__webPushSubscriptions = existing;
 
-    const existing = getSubscriptions();
-    const isDuplicate = existing.some((s) => s.endpoint === sub.endpoint);
-    if (!isDuplicate) {
-      existing.push(sub);
-      fs.writeFileSync(SUBSCRIPTIONS_FILE, JSON.stringify(existing, null, 2), "utf-8");
-      console.log(`[WebPush] Stored new browser subscription (${existing.length} total)`);
+    const content = JSON.stringify(existing, null, 2);
+
+    // Write to /tmp (always writable on Vercel)
+    try {
+      fs.writeFileSync(TMP_SUBSCRIPTIONS, content, "utf-8");
+    } catch (e) {
+      console.warn("[WebPush] Failed writing to /tmp:", e);
     }
-  } catch (err) {
-    console.error("[WebPush] Error saving subscription:", err);
+
+    // Safe fallback to data/
+    try {
+      const dir = path.dirname(BUNDLED_SUBSCRIPTIONS);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(BUNDLED_SUBSCRIPTIONS, content, "utf-8");
+    } catch {
+      // Expected on Vercel
+    }
   }
 }
 
@@ -80,7 +117,10 @@ export async function broadcastWebPush(payload: {
 
   // Update subscriptions file if any were pruned
   if (validSubscriptions.length !== subscriptions.length) {
-    fs.writeFileSync(SUBSCRIPTIONS_FILE, JSON.stringify(validSubscriptions, null, 2), "utf-8");
+    globalForWebPush.__webPushSubscriptions = validSubscriptions;
+    try {
+      fs.writeFileSync(TMP_SUBSCRIPTIONS, JSON.stringify(validSubscriptions, null, 2), "utf-8");
+    } catch {}
   }
 
   return { sent, failed };

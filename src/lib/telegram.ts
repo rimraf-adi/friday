@@ -2,8 +2,13 @@ import fs from "fs";
 import path from "path";
 import { ForexNewsStory } from "@/types/news";
 
-const CONFIG_FILE = path.join(process.cwd(), "data", "telegram-config.json");
+const BUNDLED_CONFIG_FILE = path.join(process.cwd(), "data", "telegram-config.json");
+const TMP_CONFIG_FILE = path.join("/tmp", "telegram-config.json");
 const DEFAULT_TOKEN = "8978565848:AAEejpO6KDR689DXm9BCWUl95nGb_9zfOv0";
+
+const globalForTelegram = global as unknown as {
+  __activeTelegramChatId?: string | null;
+};
 
 export function getBotToken(): string {
   return process.env.TELEGRAM_BOT_TOKEN || DEFAULT_TOKEN;
@@ -13,25 +18,54 @@ export function getStoredChatId(): string | null {
   if (process.env.TELEGRAM_CHAT_ID) {
     return process.env.TELEGRAM_CHAT_ID.trim();
   }
+  if (globalForTelegram.__activeTelegramChatId) {
+    return globalForTelegram.__activeTelegramChatId;
+  }
+  // Try /tmp first
   try {
-    if (fs.existsSync(CONFIG_FILE)) {
-      const data = JSON.parse(fs.readFileSync(CONFIG_FILE, "utf-8"));
-      return data.chatId || null;
+    if (fs.existsSync(TMP_CONFIG_FILE)) {
+      const data = JSON.parse(fs.readFileSync(TMP_CONFIG_FILE, "utf-8"));
+      if (data.chatId) {
+        globalForTelegram.__activeTelegramChatId = data.chatId;
+        return data.chatId;
+      }
     }
   } catch (err) {
-    console.error("[Telegram] Error reading telegram-config.json:", err);
+    console.warn("[Telegram] Error reading /tmp/telegram-config.json:", err);
+  }
+  // Try bundled data/ file
+  try {
+    if (fs.existsSync(BUNDLED_CONFIG_FILE)) {
+      const data = JSON.parse(fs.readFileSync(BUNDLED_CONFIG_FILE, "utf-8"));
+      if (data.chatId) {
+        globalForTelegram.__activeTelegramChatId = data.chatId;
+        return data.chatId;
+      }
+    }
+  } catch (err) {
+    console.warn("[Telegram] Error reading bundled telegram-config.json:", err);
   }
   return null;
 }
 
 export function saveStoredChatId(chatId: string): void {
+  const cleanId = chatId.trim();
+  globalForTelegram.__activeTelegramChatId = cleanId;
+
+  // 1. Write to /tmp (always writable on Vercel)
   try {
-    const dir = path.dirname(CONFIG_FILE);
+    fs.writeFileSync(TMP_CONFIG_FILE, JSON.stringify({ chatId: cleanId }, null, 2), "utf-8");
+  } catch (e) {
+    console.warn("[Telegram] Failed writing to /tmp:", e);
+  }
+
+  // 2. Try writing to local data/ (safe fallback)
+  try {
+    const dir = path.dirname(BUNDLED_CONFIG_FILE);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(CONFIG_FILE, JSON.stringify({ chatId: chatId.trim() }, null, 2), "utf-8");
-    console.log(`[Telegram] Saved active chatId: ${chatId}`);
-  } catch (err) {
-    console.error("[Telegram] Error saving telegram-config.json:", err);
+    fs.writeFileSync(BUNDLED_CONFIG_FILE, JSON.stringify({ chatId: cleanId }, null, 2), "utf-8");
+  } catch {
+    // Expected on Vercel
   }
 }
 

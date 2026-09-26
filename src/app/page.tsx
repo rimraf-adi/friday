@@ -59,17 +59,30 @@ export default function Home() {
   const [telegramNotice, setTelegramNotice] = useState<string | null>(null);
   const [customChatIdInput, setCustomChatIdInput] = useState("");
 
+  const safeJsonFetch = async (url: string, options?: RequestInit) => {
+    const res = await fetch(url, options);
+    const text = await res.text();
+    try {
+      return JSON.parse(text);
+    } catch {
+      throw new Error(
+        res.ok
+          ? "Invalid response from server"
+          : `Server error (${res.status}): ${text.slice(0, 100)}`
+      );
+    }
+  };
+
   const fetchNews = async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/news");
-      const data = await res.json();
-      if (data.success) {
+      const data = await safeJsonFetch("/api/news");
+      if (data && data.success) {
         setStories(data.stories || []);
         setMeta(data.meta || null);
       }
-    } catch (err) {
-      console.error("Failed to load news:", err);
+    } catch (err: any) {
+      console.error("Failed to load news:", err.message || err);
     } finally {
       setLoading(false);
     }
@@ -77,13 +90,12 @@ export default function Home() {
 
   const fetchTelegramStatus = async () => {
     try {
-      const res = await fetch("/api/telegram");
-      const data = await res.json();
-      if (data.success && data.chatId) {
+      const data = await safeJsonFetch("/api/telegram");
+      if (data && data.success && data.chatId) {
         setTelegramChatId(data.chatId);
       }
-    } catch (err) {
-      console.error("Failed to fetch telegram status:", err);
+    } catch (err: any) {
+      console.warn("Telegram status check:", err.message || err);
     }
   };
 
@@ -238,15 +250,14 @@ export default function Home() {
     setIsScraping(true);
     setScrapeNotice(null);
     try {
-      const res = await fetch("/api/cron", { method: "POST" });
-      const data = await res.json();
-      if (data.success) {
+      const data = await safeJsonFetch("/api/cron", { method: "POST" });
+      if (data && data.success) {
         setScrapeNotice(
           `✓ Scraped successfully: ${data.scrapedCount} parsed, ${data.newCount} new added!`
         );
         fetchNews();
       } else {
-        setScrapeNotice(`✗ Scrape error: ${data.error || "Unknown error"}`);
+        setScrapeNotice(`✗ Scrape notice: ${data?.error || "Unable to complete scrape"}`);
       }
     } catch (err: any) {
       setScrapeNotice(`✗ Request failed: ${err.message}`);
@@ -259,17 +270,16 @@ export default function Home() {
     setIsDetectingTelegram(true);
     setTelegramNotice(null);
     try {
-      const res = await fetch("/api/telegram", {
+      const data = await safeJsonFetch("/api/telegram", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "discover" }),
       });
-      const data = await res.json();
-      if (data.success && data.chatId) {
+      if (data && data.success && data.chatId) {
         setTelegramChatId(data.chatId);
         setTelegramNotice(`✓ Connected! Chat ID: ${data.chatId}`);
       } else {
-        setTelegramNotice(`✗ ${data.error}`);
+        setTelegramNotice(`✗ ${data?.error || "Could not detect chat"}`);
       }
     } catch (err: any) {
       setTelegramNotice(`✗ Detection failed: ${err.message}`);
@@ -281,7 +291,7 @@ export default function Home() {
   const handleSaveCustomChatId = async () => {
     if (!customChatIdInput.trim()) return;
     try {
-      const res = await fetch("/api/telegram", {
+      const data = await safeJsonFetch("/api/telegram", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -289,8 +299,7 @@ export default function Home() {
           chatId: customChatIdInput.trim(),
         }),
       });
-      const data = await res.json();
-      if (data.success) {
+      if (data && data.success) {
         setTelegramChatId(data.chatId);
         setTelegramNotice(`✓ Chat ID saved: ${data.chatId}`);
         setCustomChatIdInput("");
@@ -304,16 +313,15 @@ export default function Home() {
     setIsSendingPing(true);
     setTelegramNotice(null);
     try {
-      const res = await fetch("/api/telegram", {
+      const data = await safeJsonFetch("/api/telegram", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "test_ping" }),
       });
-      const data = await res.json();
-      if (data.success) {
+      if (data && data.success) {
         setTelegramNotice("✓ Test alert sent to Telegram! Check your chat.");
       } else {
-        setTelegramNotice(`✗ Failed to send alert: ${data.error}`);
+        setTelegramNotice(`✗ Failed to send alert: ${data?.error}`);
       }
     } catch (err: any) {
       setTelegramNotice(`✗ Network error: ${err.message}`);
