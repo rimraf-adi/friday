@@ -67,7 +67,13 @@ export function saveNewsStore(store: NewsStore): void {
 export function mergeStories(
   incomingStories: ForexNewsStory[],
   metaUpdates: Partial<ScraperMeta>
-): { newCount: number; totalCount: number; meta: ScraperMeta; stories: ForexNewsStory[] } {
+): {
+  newCount: number;
+  newlyAddedStories: ForexNewsStory[];
+  totalCount: number;
+  meta: ScraperMeta;
+  stories: ForexNewsStory[];
+} {
   const store = getNewsStore();
   const existingMap = new Map<string, ForexNewsStory>();
 

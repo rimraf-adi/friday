@@ -1,7 +1,7 @@
 {
   "meta": {
-    "lastRunAt": "2026-09-26T19:10:00.651Z",
-    "nextRunAt": "2026-09-26T19:15:00.000Z",
+    "lastRunAt": "2026-09-26T19:15:00.695Z",
+    "nextRunAt": "2026-09-26T19:20:00.000Z",
     "status": "success",
     "lastError": null,
     "totalStories": 4,
@@ -18,7 +18,7 @@
       "source": "channelnewsasia.com",
       "sourceUrl": "https://www.forexfactory.com/news/1428658-iran-awaits-us-move-after-wsj-report-says/hit",
       "timeAgo": "3 hr ago",
-      "publishedAt": "2026-09-26T16:10:00.645Z",
+      "publishedAt": "2026-09-26T16:15:00.690Z",
       "commentsCount": 2,
       "commentsText": "2 comments",
       "preview": "Iran on Saturday (Sep 26) awaited a US response to its proposal to reopen the Strait of Hormuz and end fighting in the Middle East war after the Wall Street Journal reported that President Donald Trump had rejected the deal. Iran raised the diplomatic initiative at the UN General Assembly in New York, saying it had been transmitted to the Americans via ...",
@@ -28,7 +28,7 @@
       ],
       "isLatestStoriesWidget": true,
       "firstScrapedAt": "2026-09-26T18:59:43.756Z",
-      "lastScrapedAt": "2026-09-26T19:10:00.651Z",
+      "lastScrapedAt": "2026-09-26T19:15:00.695Z",
       "notifiedViaTelegram": true
     },
     {
@@ -39,7 +39,7 @@
       "source": "@NodeWire",
       "sourceUrl": "https://www.forexfactory.com/news/1428651-trump-says-he-has-rejected-irans-proposal/hit",
       "timeAgo": "4 hr ago",
-      "publishedAt": "2026-09-26T15:10:00.646Z",
+      "publishedAt": "2026-09-26T15:15:00.691Z",
       "commentsCount": 26,
       "commentsText": "26 comments",
       "preview": "Trump Says He Has Rejected Irans Proposal ... Trump: We want Americans to have access to Cuba Trump: Chinas Xi Understands My Stance On Taiwan ...",
@@ -51,7 +51,7 @@
       ],
       "isLatestStoriesWidget": true,
       "firstScrapedAt": "2026-09-26T18:59:43.756Z",
-      "lastScrapedAt": "2026-09-26T19:10:00.651Z",
+      "lastScrapedAt": "2026-09-26T19:15:00.695Z",
       "notifiedViaTelegram": true
     },
     {
@@ -62,7 +62,7 @@
       "source": "@realDonaldTrump",
       "sourceUrl": "https://www.forexfactory.com/news/1428650-iran-can-not-have-a-nuclear-weapon/hit",
       "timeAgo": "4 hr ago",
-      "publishedAt": "2026-09-26T15:10:00.647Z",
+      "publishedAt": "2026-09-26T15:15:00.691Z",
       "commentsCount": 21,
       "commentsText": "21 comments",
       "preview": "IRAN CAN NOT HAVE A NUCLEAR WEAPON!!! President DJT",
@@ -72,7 +72,7 @@
       ],
       "isLatestStoriesWidget": true,
       "firstScrapedAt": "2026-09-26T18:59:43.756Z",
-      "lastScrapedAt": "2026-09-26T19:10:00.651Z",
+      "lastScrapedAt": "2026-09-26T19:15:00.695Z",
       "notifiedViaTelegram": true
     },
     {
@@ -83,7 +83,7 @@
       "source": "forex.com",
       "sourceUrl": "https://www.forexfactory.com/news/1428631-audusd-q4-outlook-rba-and-fed-hikes-set/hit",
       "timeAgo": "7 hr ago",
-      "publishedAt": "2026-09-26T12:10:00.647Z",
+      "publishedAt": "2026-09-26T12:15:00.692Z",
       "commentsCount": 0,
       "commentsText": "",
       "preview": "The Australian dollar enters Q4 with monetary policy firmly back in control of the macro narrative. The Fed has already resumed tightening, while markets expect the RBA to deliver at least one more hike as persistent inflation keeps policymakers on alert. That leaves AUD/USD facing a more balanced rate backdrop than it did entering Q3. Australian rate ...",
@@ -93,7 +93,7 @@
       ],
       "isLatestStoriesWidget": true,
       "firstScrapedAt": "2026-09-26T18:59:43.756Z",
-      "lastScrapedAt": "2026-09-26T19:10:00.651Z",
+      "lastScrapedAt": "2026-09-26T19:15:00.695Z",
       "notifiedViaTelegram": true
     }
   ]
